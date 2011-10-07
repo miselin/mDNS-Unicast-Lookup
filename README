@@ -1,0 +1,55 @@
+mDNS Unicast Lookup
+===================
+
+-- Purpose
+
+This software is designed to be installed in a single location on a network
+where mDNS is expected to be used; multiple installations are not supported.
+
+Note that you should definitely be trying to avoid using .local as your
+"intranet" domain name if you can help it - this kind of software is just for
+those of us unlucky enough to already have a .local domain name and no easy way
+to back out of that.
+
+You can use the mDNS Unicast Lookup tool to provide a way for clients that use
+multicast DNS (mDNS) for local lookups instead of unicast DNS. For example, on
+a Windows network with a .local domain name, a Mac will attempt to perform all
+lookups via mDNS first, and then only try unicast DNS upon timing out. This in
+particular causes all manner of problems with Active Directory and other common
+Windows network features.
+
+So that's where this tool comes in - any of those .local lookups via mDNS will
+be converted into a unicast DNS lookup, and then the result will be sent right
+back to the original client (via an mDNS response, no less).
+
+This tool also shows just how insecure the current implementation of mDNS is.
+If any single machine on the network can intercept multicast DNS packets and
+send out a crafted response, services can be redirected to just about anywhere.
+
+-- Pre-requisites
+
+You'll need a relatively sane version of Python - really anything past 2.4 will
+do the trick. Python 3.x has not been tested yet.
+
+You'll also need two libraries:
+DNSPython (http://www.dnspython.org), and
+dnslib (http://pypi.python.org/pypi/dnslib)
+
+Download the archives, extract them, and run python setup.py install as root and
+you'll be good to go.
+
+-- Installation
+
+No installation required - the tool is standalone and will run from any
+directory. Just make sure proxy.py is +x (executable).
+
+-- Usage
+
+Just ./proxy.py.
+
+No command-line options, no user interface of any sort - this is all meant to be
+something you just plug in and forget about. I'd recommend running the tool in a
+screen session somewhere so you can check it out quickly and easily, but how you
+keep it running is up to you.
+
+To kill the tool, just hit CTRL-C.
