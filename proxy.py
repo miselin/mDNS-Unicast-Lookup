@@ -21,24 +21,20 @@ from dnslib import *
 CLASS.forward[0x8001] = "IN mDNS"
 CLASS.reverse["IN mDNS"] = 0x8001
 
+# Update dnslib's QTYPE variable to allow SRV lookups.
+QTYPE.forward[33] = "SRV"
+QTYPE.reverse["SRV"] = 33
+
 import dns.resolver, dns.message, dns.rdatatype, dns.opcode
 import socket, struct, sys
 
-# Multicast address for mDNS
-MDNS_DESTINATION = '224.0.0.251'
-MDNS_PORT = 5353
+from util import *
 
-# Set up a listening socket so we can sniff out all the mDNS traffic on the
-# network. REUSEADDR is required on all systems, REUSEPORT also for OS X.
-sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-if sys.platform == 'darwin':
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-sock.bind(('', MDNS_PORT))
+# Update dnslib's RDMAP to handle SRV records using our custom class.
+RDMAP["SRV"] = SRV
 
-# Join the multicast group, prepare to receive packets from it.
-mreq = struct.pack("4sl", socket.inet_aton(MDNS_DESTINATION), socket.INADDR_ANY)
-sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
+# Grab an mDNS socket ready for use
+sock = get_mdns_socket()
 
 print "Now listening for mDNS queries..."
 
@@ -49,40 +45,54 @@ print "Now listening for mDNS queries..."
 while True:
     # 8 KB should be enough for an mDNS message...
     buf, remote = sock.recvfrom(8192)
-    msg = dns.message.from_wire(buf)
+    try:
+        msg = dns.message.from_wire(buf)
+    except KeyboardInterrupt:
+        break
+    except:
+        continue
     
     # We're only looking at queries - everything else isn't worth looking at.
     if msg.opcode() == dns.opcode.QUERY:
-        print "mDNS query %s:%s" % remote
+        # Forget about answers, we only want questions.
+        if len(msg.answer):
+            continue
+        print "mDNS query from %s:%d" % remote
         
         # Completed forward lookups.
         lookups = []
         
         # Forward the queries to the unicast server.
         for question in msg.question:
-            print "\t%s [%d]" % (str(question), question.rdtype)
+            print "\tfor %s [%d]" % (str(question), question.rdtype)
             
             # Handle errors from the lookup - don't respond if we can't lookup.
             try:
-                # TODO: handle more than A records.
-                if question.rdtype == dns.rdatatype.A:
-                    # Forward lookup, using default DNS servers.
-                    answer = dns.resolver.query(str(question.name), question.rdtype)
-                    for record in answer:
-                        lookups += [[str(question.name), question.rdtype, record.address]]
-            except (dns.resolver.NXDOMAIN, dns.resolver.Timeout, dns.resolver.NoAnswer, dns.resolver.NoNameservers):
+                # Forward lookup, using default DNS servers.
+                answer = dns.resolver.query(str(question.name), question.rdtype)
+                for record in answer:
+                    tmp = to_wire_helper()
+                    record.to_wire(tmp)
+                    rdata = RD.parse(tmp, tmp.size())
+                    
+                    lookups += [[str(question.name), question.rdtype, rdata]]
+            except (dns.resolver.NXDOMAIN, dns.resolver.Timeout, dns.resolver.NoAnswer, dns.resolver.NoNameservers, dns.resolver.NoMetaqueries):
                 print "\tNo result for a lookup of type %d for %s" % (question.rdtype, str(question))
         
         if len(lookups):
             # Create the DNS message to send out
             resp = DNSRecord(DNSHeader(id = 0, bitmap = 0x8400))
             
-            # All responses will be in the IN mDNS class; whereas the actual
-            # response type may not always be an A record...
-            # TODO: handle non-A records.
+            # We just assume the response should be in the IN class for now.
             for dnsname, rdtype, response in lookups:
-                resp.add_answer(RR(dnsname, rdtype, CLASS.lookup("IN mDNS"), rdata = A(response), ttl = 120))
+                if not response is None:
+                    if dnsname[-1] == ".":
+                        dnsname = dnsname[:-1]
+                    resp.add_answer(RR(dnsname, rdtype, CLASS.lookup("IN mDNS"), rdata = response, ttl = 120))
             
             # Send out the response to the group
             sock.sendto(resp.pack(), (MDNS_DESTINATION, MDNS_PORT))
+            
+            # Tell the user how many records were returned.
+            print "%d records in response" % (len(lookups),)
 
