@@ -52,4 +52,14 @@ something you just plug in and forget about. I'd recommend running the tool in a
 screen session somewhere so you can check it out quickly and easily, but how you
 keep it running is up to you.
 
+If you want to try out the proxy and test that it works, the mdns-lookup.py tool
+is available. For example, if you wanted to get an A record for "host.local",
+you would simply run:
+
+./mdns-lookup.py host.local
+
+Or, if you wanted to find a TXT record for a name:
+
+./mdns-lookup.py --type TXT name.local
+
 To kill the tool, just hit CTRL-C.
