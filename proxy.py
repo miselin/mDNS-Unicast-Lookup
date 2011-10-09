@@ -33,6 +33,15 @@ from util import *
 # Update dnslib's RDMAP to handle SRV records using our custom class.
 RDMAP["SRV"] = SRV
 
+# Cache of lookups - helps us avoid hitting the DNS server over and over for the
+# same DNS name (which, to be honest, seems to happen a lot with mDNS)
+#
+# You can actually use this to spoof a few names on your own network if you so
+# desire - for example:
+# lookupCache = { ("host.local.", QTYPE.lookup("A")) : A("1.2.3.4") }
+# Note the trailing full stop.
+lookupCache = {}
+
 # Grab an mDNS socket ready for use
 sock = get_mdns_socket()
 
@@ -64,18 +73,24 @@ while True:
         
         # Forward the queries to the unicast server.
         for question in msg.question:
-            print "\tfor %s [%d]" % (str(question), question.rdtype)
+            qname = str(question.name)
+            print "\tfor %s [%d]" % (qname, question.rdtype)
             
             # Handle errors from the lookup - don't respond if we can't lookup.
             try:
-                # Forward lookup, using default DNS servers.
-                answer = dns.resolver.query(str(question.name), question.rdtype)
-                for record in answer:
-                    tmp = to_wire_helper()
-                    record.to_wire(tmp)
-                    rdata = RD.parse(tmp, tmp.size())
-                    
-                    lookups += [[str(question.name), question.rdtype, rdata]]
+                # Attempt to use the lookup cache if possible
+                rdata = lookupCache.get((qname, question.rdtype))
+                if rdata is None:
+                    # Forward lookup, using default DNS servers.
+                    answer = dns.resolver.query(qname, question.rdtype)
+                    for record in answer:
+                        tmp = to_wire_helper()
+                        record.to_wire(tmp)
+                        rdata = RD.parse(tmp, tmp.size())
+                        
+                        lookupCache[(qname, question.rdtype)] = rdata
+                
+                lookups += [[qname, question.rdtype, rdata]]
             except (dns.resolver.NXDOMAIN, dns.resolver.Timeout, dns.resolver.NoAnswer, dns.resolver.NoNameservers, dns.resolver.NoMetaqueries):
                 print "\tNo result for a lookup of type %d for %s" % (question.rdtype, str(question))
         
