@@ -18,6 +18,8 @@
 from dnslib import *
 
 # Update dnslib's CLASS variable to hold class 0x8001 - IN + Cache Flush for mDNS.
+# Also, when *receiving* a query with the top bit set (0x8000), the response is
+# allowed to be transmitted via unicast rather than multicast.
 CLASS.forward[0x8001] = "IN mDNS"
 CLASS.reverse["IN mDNS"] = 0x8001
 
@@ -76,6 +78,8 @@ while True:
             qname = str(question.name)
             print "\tfor %s [%d]" % (qname, question.rdtype)
             
+            unicastResponse = question.rdclass == CLASS.lookup("IN mDNS")
+            
             # Handle errors from the lookup - don't respond if we can't lookup.
             try:
                 # Attempt to use the lookup cache if possible
@@ -90,23 +94,39 @@ while True:
                         
                         lookupCache[(qname, question.rdtype)] = rdata
                 
-                lookups += [[qname, question.rdtype, rdata]]
+                lookups += [[qname, question.rdtype, rdata, unicastResponse]]
             except (dns.resolver.NXDOMAIN, dns.resolver.Timeout, dns.resolver.NoAnswer, dns.resolver.NoNameservers, dns.resolver.NoMetaqueries):
                 print "\tNo result for a lookup of type %d for %s" % (question.rdtype, str(question))
         
         if len(lookups):
             # Create the DNS message to send out
-            resp = DNSRecord(DNSHeader(id = 0, bitmap = 0x8400))
+            resp = None
+            uresp = None
             
             # We just assume the response should be in the IN class for now.
-            for dnsname, rdtype, response in lookups:
+            for dnsname, rdtype, response, unicast in lookups:
                 if not response is None:
                     if dnsname[-1] == ".":
                         dnsname = dnsname[:-1]
-                    resp.add_answer(RR(dnsname, rdtype, CLASS.lookup("IN mDNS"), rdata = response, ttl = 120))
+                    
+                    if unicast:
+                        if uresp is None:
+                            uresp = DNSRecord(DNSHeader(id = 0, bitmap = 0x8400))
+                        r = uresp
+                    else:
+                        if resp is None:
+                            resp = DNSRecord(DNSHeader(id = 0, bitmap = 0x8400))
+                        r = resp
+                    
+                    r.add_answer(RR(dnsname, rdtype, CLASS.lookup("IN mDNS"), rdata = response, ttl = 120))
             
             # Send out the response to the group
-            sock.sendto(resp.pack(), (MDNS_DESTINATION, MDNS_PORT))
+            if not resp is None:
+                sock.sendto(resp.pack(), (MDNS_DESTINATION, MDNS_PORT))
+            
+            # Send out unicast responses
+            if not uresp is None:
+                sock.sendto(uresp.pack(), remote)
             
             # Tell the user how many records were returned.
             print "%d records in response" % (len(lookups),)
