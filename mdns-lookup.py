@@ -33,7 +33,7 @@ import socket, struct, sys, signal
 
 from optparse import OptionParser
 
-from util import SRV, get_mdns_socket
+from util import SRV, get_mdns_socket, TimeoutException
 
 # Update dnslib's RDMAP to handle SRV records using our custom class.
 RDMAP["SRV"] = SRV
