@@ -15,7 +15,7 @@
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-from dnslib import *
+from dnslib import CLASS, QTYPE, RDMAP, DNSRecord, DNSHeader
 
 # Update dnslib's CLASS variable to hold class 0x8001 - IN + Cache Flush for mDNS.
 # Also, when *receiving* a query with the top bit set (0x8000), the response is
@@ -30,7 +30,7 @@ QTYPE.reverse["SRV"] = 33
 import dns.resolver, dns.message, dns.rdatatype, dns.opcode
 import socket, struct, sys
 
-from util import *
+from util import SRV, get_mdns_socket
 
 # Update dnslib's RDMAP to handle SRV records using our custom class.
 RDMAP["SRV"] = SRV
