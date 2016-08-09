@@ -21,8 +21,8 @@
 from dnslib import CLASS, QTYPE, RDMAP, DNSRecord, DNSHeader, DNSQuestion
 
 # Update dnslib's CLASS variable to hold class 0x8001 - IN + Cache Flush for mDNS.
-CLASS.forward[0x8001] = "IN mDNS"
-CLASS.reverse["IN mDNS"] = 0x8001
+CLASS.forward[0x8001] = "IN_mDNS"
+CLASS.reverse["IN_mDNS"] = 0x8001
 
 # Update dnslib's QTYPE variable to allow SRV lookups.
 QTYPE.forward[33] = "SRV"
