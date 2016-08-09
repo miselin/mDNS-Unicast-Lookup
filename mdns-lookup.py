@@ -18,7 +18,7 @@
 # Little tool to go the other way - do a lookup for a given name via mDNS.
 # Can be used to test proxy.py.
 
-from dnslib import *
+from dnslib import CLASS, QTYPE, RDMAP, DNSRecord, DNSHeader, DNSQuestion
 
 # Update dnslib's CLASS variable to hold class 0x8001 - IN + Cache Flush for mDNS.
 CLASS.forward[0x8001] = "IN mDNS"
@@ -33,7 +33,7 @@ import socket, struct, sys, signal
 
 from optparse import OptionParser
 
-from util import *
+from util import SRV, get_mdns_socket
 
 # Update dnslib's RDMAP to handle SRV records using our custom class.
 RDMAP["SRV"] = SRV
