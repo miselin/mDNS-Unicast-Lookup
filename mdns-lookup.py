@@ -66,7 +66,7 @@ for hostname in args:
     lookupHostname = hostname
 
     # Generate the DNS request.
-    d = DNSRecord(DNSHeader(id = 0, bitmap = 0), q = DNSQuestion(lookupHostname, QTYPE.lookup(options.type), CLASS.lookup("IN")))
+    d = DNSRecord(DNSHeader(id = 0, bitmap = 0), q = DNSQuestion(lookupHostname, getattr(QTYPE, options.type), CLASS.IN))
     
     # Transmit.
     sock.sendto(d.pack(), (MDNS_DESTINATION, MDNS_PORT))
