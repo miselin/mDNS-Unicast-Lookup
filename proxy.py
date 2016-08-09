@@ -20,8 +20,8 @@ from dnslib import *
 # Update dnslib's CLASS variable to hold class 0x8001 - IN + Cache Flush for mDNS.
 # Also, when *receiving* a query with the top bit set (0x8000), the response is
 # allowed to be transmitted via unicast rather than multicast.
-CLASS.forward[0x8001] = "IN mDNS"
-CLASS.reverse["IN mDNS"] = 0x8001
+CLASS.forward[0x8001] = "IN_mDNS"
+CLASS.reverse["IN_mDNS"] = 0x8001
 
 # Update dnslib's QTYPE variable to allow SRV lookups.
 QTYPE.forward[33] = "SRV"
@@ -40,7 +40,7 @@ RDMAP["SRV"] = SRV
 #
 # You can actually use this to spoof a few names on your own network if you so
 # desire - for example:
-# lookupCache = { ("host.local.", QTYPE.lookup("A")) : A("1.2.3.4") }
+# lookupCache = { ("host.local.", QTYPE.A)) : A("1.2.3.4") }
 # Note the trailing full stop.
 lookupCache = {}
 
@@ -78,7 +78,7 @@ while True:
             qname = str(question.name)
             print "\tfor %s [%d]" % (qname, question.rdtype)
             
-            unicastResponse = question.rdclass == CLASS.lookup("IN mDNS")
+            unicastResponse = question.rdclass == getattr(CLASS, "IN_mDNS")
             
             # Handle errors from the lookup - don't respond if we can't lookup.
             try:
@@ -118,7 +118,7 @@ while True:
                             resp = DNSRecord(DNSHeader(id = 0, bitmap = 0x8400))
                         r = resp
                     
-                    r.add_answer(RR(dnsname, rdtype, CLASS.lookup("IN mDNS"), rdata = response, ttl = 120))
+                    r.add_answer(RR(dnsname, rdtype, getattr(CLASS, "IN_mDNS"), rdata = response, ttl = 120))
             
             # Send out the response to the group
             if not resp is None:
