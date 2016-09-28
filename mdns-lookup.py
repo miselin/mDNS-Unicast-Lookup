@@ -18,11 +18,11 @@
 # Little tool to go the other way - do a lookup for a given name via mDNS.
 # Can be used to test proxy.py.
 
-from dnslib import *
+from dnslib import CLASS, QTYPE, RDMAP, DNSRecord, DNSHeader, DNSQuestion
 
 # Update dnslib's CLASS variable to hold class 0x8001 - IN + Cache Flush for mDNS.
-CLASS.forward[0x8001] = "IN mDNS"
-CLASS.reverse["IN mDNS"] = 0x8001
+CLASS.forward[0x8001] = "IN_mDNS"
+CLASS.reverse["IN_mDNS"] = 0x8001
 
 # Update dnslib's QTYPE variable to allow SRV lookups.
 QTYPE.forward[33] = "SRV"
@@ -33,7 +33,7 @@ import socket, struct, sys, signal
 
 from optparse import OptionParser
 
-from util import *
+from util import SRV, get_mdns_socket, TimeoutException
 
 # Update dnslib's RDMAP to handle SRV records using our custom class.
 RDMAP["SRV"] = SRV
@@ -66,7 +66,7 @@ for hostname in args:
     lookupHostname = hostname
 
     # Generate the DNS request.
-    d = DNSRecord(DNSHeader(id = 0, bitmap = 0), q = DNSQuestion(lookupHostname, QTYPE.lookup(options.type), CLASS.lookup("IN")))
+    d = DNSRecord(DNSHeader(id = 0, bitmap = 0), q = DNSQuestion(lookupHostname, getattr(QTYPE, options.type), CLASS.IN))
     
     # Transmit.
     sock.sendto(d.pack(), (MDNS_DESTINATION, MDNS_PORT))
